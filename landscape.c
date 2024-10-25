@@ -3,6 +3,7 @@
 // Allocates space for nodes and neighborhoods arrays, assigns N and K
 // does NOT build anything (because we don't want to be stuck leaking memory)
 void init_NK(NK_landscape* nk, uint32_t N, uint32_t K) {
+    printf("<init_NK>\n");
     // basic assignments
     nk->N = N;
     nk->K = K;
@@ -15,6 +16,7 @@ void init_NK(NK_landscape* nk, uint32_t N, uint32_t K) {
         nb->B = (uint32_t*)malloc(K*sizeof(uint32_t));
         nb->fitnesses = (float*)malloc((1<<K)*sizeof(float));
     }
+    printf("</init_NK>\n");
 }
 
 // arg1 and arg2 are node pointers
@@ -28,6 +30,7 @@ int compare2(const void* arg1, const void* arg2) {
 // builds neighborhoods, random fitness values, etc.
 // DOES NOT allocate anything (N and K already need to be correctly set up)
 void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
+    printf("<reroll_NK>\n");
     uint32_t K = nk->K;
     uint32_t N = nk->N;
     nk->kst = kst;
@@ -138,12 +141,14 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
         qsort(nk->nodes, nk->N, sizeof(node), compare2);
     }
     // so now, all nodes have a correct fitness and correct rank
+    printf("</reroll_NK>\n");
 }
 
 // Allocates nodes and space for underlying NK landscape
 // Note: intolerant of H=0 -- if you want to simulate that, use the NK model 
 //       with K_style = CLASSIC
 void init_HNK(HNK_landscape* hnk, uint32_t H, uint32_t N, uint32_t K) {
+    printf("<init_HNK>\n");
     hnk->H = H;
     hnk->N = N;
     hnk->K = K;
@@ -152,11 +157,13 @@ void init_HNK(HNK_landscape* hnk, uint32_t H, uint32_t N, uint32_t K) {
     hnk->nodes = (node*)malloc((1<<(H+N))*sizeof(node));
 
     init_NK(&(hnk->gamma_landscape), N, K);
+    printf("</init_HNK>\n");
 }
 
 // builds neighborhoods, random fitness values, etc.
 // DOES NOT allocate anything (H, N, and K already need to be correctly set up)
 void reroll_HNK(HNK_landscape* hnk, B_styles bst, uint8_t do_rank) {
+    printf("<reroll_HNK>\n");
     uint32_t H = hnk->H;
     uint32_t N = hnk->N;
     uint32_t K = hnk->K;
@@ -166,9 +173,9 @@ void reroll_HNK(HNK_landscape* hnk, B_styles bst, uint8_t do_rank) {
     for (uint32_t h = 0; h < H; h++) {
         uint32_t G_h = 0;
         for (uint32_t i = 0; i < K; i++) {
-            uint32_t candidate = 1 << ((rand() % N) + H);
+            uint32_t candidate = 1 << (rand() % N);
             while (G_h & candidate) { // this bit was picked before
-                candidate = 1 << ((rand() % N) + H);
+                candidate = 1 << (rand() % N);
             }
             G_h |= candidate;
         }
@@ -198,18 +205,7 @@ void reroll_HNK(HNK_landscape* hnk, B_styles bst, uint8_t do_rank) {
         (hnk->nodes)[s].fitness = (hnk->gamma_landscape).nodes[gamma].fitness;
         (hnk->nodes)[s].rank = (hnk->gamma_landscape).nodes[gamma].rank; // if do_rank = 0 these are just garbage
     }
-}
-
-// determines if a genotype s has access to the global optimum on hnk
-// hnk must have rank data for this to work. We don't allocate backtracking
-// here because that would excessively call malloc if we wanted to call this
-// many times on the same landscape (which we will).
-uint8_t HNK_has_access(HNK_landscape* hnk, uint32_t s, uint8_t* backtracking) {
-    for (uint32_t i = 0; i < (1<<(hnk->N+hnk->H)); i++) {
-        backtracking[i] = 0;
-    }
-
-    return HNK_has_access_recur(hnk, s, backtracking);
+    printf("</reroll_HNK>\n");
 }
 
 // recurrence helper for HNK_has_access. Only reason these two functions are separate
@@ -238,14 +234,16 @@ uint8_t HNK_has_access_recur(HNK_landscape* hnk, uint32_t s, uint8_t* backtracki
     return ret;
 }
 
-// see above HNK functions for explanation of what this and NK_has_access_recur are doing
-// they are essentially the same, except a few nuances about datatypes
-uint8_t NK_has_access(NK_landscape* nk, uint32_t s, uint8_t* backtracking) {
-    for (uint32_t i = 0; i < (1<<(nk->N)); i++) {
+// determines if a genotype s has access to the global optimum on hnk
+// hnk must have rank data for this to work. We don't allocate backtracking
+// here because that would excessively call malloc if we wanted to call this
+// many times on the same landscape (which we will).
+uint8_t HNK_has_access(HNK_landscape* hnk, uint32_t s, uint8_t* backtracking) {
+    for (uint32_t i = 0; i < (1<<(hnk->N+hnk->H)); i++) {
         backtracking[i] = 0;
     }
 
-    return NK_has_access_recur(nk, s, backtracking);
+    return HNK_has_access_recur(hnk, s, backtracking);
 }
 
 uint8_t NK_has_access_recur(NK_landscape* nk, uint32_t s, uint8_t* backtracking) {
@@ -270,6 +268,16 @@ uint8_t NK_has_access_recur(NK_landscape* nk, uint32_t s, uint8_t* backtracking)
     }
 
     return ret;
+}
+
+// see above HNK functions for explanation of what this and NK_has_access_recur are doing
+// they are essentially the same, except a few nuances about datatypes
+uint8_t NK_has_access(NK_landscape* nk, uint32_t s, uint8_t* backtracking) {
+    for (uint32_t i = 0; i < (1<<(nk->N)); i++) {
+        backtracking[i] = 0;
+    }
+
+    return NK_has_access_recur(nk, s, backtracking);
 }
 
 // determines the number of 1-local optima on an input NK landscape
@@ -305,15 +313,6 @@ uint32_t NK_find_gopt(NK_landscape* nk) {
     return -1;
 }
 
-// calculates p_1 by working from the global optimum outward
-float NK_calc_p_1(NK_landscape* nk, uint8_t* backtracking, uint32_t gopt) {
-    for (uint32_t s = 0; s < (1<<(nk->N)); s++) {
-        backtracking[s] = 0;
-    }
-
-    return (NK_calc_p_1_recur(nk, backtracking, gopt)+0.0)/(1<<(nk->N));
-}
-
 uint32_t NK_calc_p_1_recur(NK_landscape* nk, uint8_t* backtracking, uint32_t s) {
     if (backtracking[s]) return 0;
     backtracking[s] = 1;
@@ -329,6 +328,15 @@ uint32_t NK_calc_p_1_recur(NK_landscape* nk, uint8_t* backtracking, uint32_t s) 
     }
 
     return ret;
+}
+
+// calculates p_1 by working from the global optimum outward
+float NK_calc_p_1(NK_landscape* nk, uint8_t* backtracking, uint32_t gopt) {
+    for (uint32_t s = 0; s < (1<<(nk->N)); s++) {
+        backtracking[s] = 0;
+    }
+
+    return (NK_calc_p_1_recur(nk, backtracking, gopt)+0.0)/(1<<(nk->N));
 }
 
 // determines the number of 1-local optima on an input HNK landscape
@@ -402,18 +410,6 @@ uint32_t HNK_find_fully_expressed_gopt(HNK_landscape* hnk) {
     return max_s;
 }
 
-// calculate p_1 for a given HNK landscape (requires rank data)
-float HNK_calc_pj(HNK_landscape* hnk, uint8_t* backtracking, uint32_t gopt) {
-    // set up anti-backtracking helpers
-    for (uint32_t i = 0; i < (1<<(hnk->N+hnk->H)); i++) {
-        backtracking[i] = 0;
-    }
-
-    // elaborate from gopt with non-increasing fitness, only counting fully expressed genotypes
-    // but being allowed to visit non-fully expressed genotypes during recursion
-    return (HNK_calc_pj_recur(hnk, backtracking, gopt)+0.0)/(1<<(hnk->N));
-}
-
 uint32_t HNK_calc_pj_recur(HNK_landscape* hnk, uint8_t* backtracking, uint32_t s) {
     if (backtracking[s]) return 0;
     backtracking[s] = 1;
@@ -435,6 +431,18 @@ uint32_t HNK_calc_pj_recur(HNK_landscape* hnk, uint8_t* backtracking, uint32_t s
     }
 
     return ret;
+}
+
+// calculate p_1 for a given HNK landscape (requires rank data)
+float HNK_calc_pj(HNK_landscape* hnk, uint8_t* backtracking, uint32_t gopt) {
+    // set up anti-backtracking helpers
+    for (uint32_t i = 0; i < (1<<(hnk->N+hnk->H)); i++) {
+        backtracking[i] = 0;
+    }
+
+    // elaborate from gopt with non-increasing fitness, only counting fully expressed genotypes
+    // but being allowed to visit non-fully expressed genotypes during recursion
+    return (HNK_calc_pj_recur(hnk, backtracking, gopt)+0.0)/(1<<(hnk->N));
 }
 
 // over nReps HNK landscapes, count how many had a fully expressed global optimum, how many had a 
@@ -645,7 +653,7 @@ void run_tests() {
     printf("IDEA 2: H=3, RANDOM; nReps = %d; fexn = %d, nexn = %d, p_1F = %f, p_1N = %f\n", nReps, fexn, nexn, p_1F, p_1N);
 }
 
-char* kst_to_str(K_styles kst) {
+const char* kst_to_str(K_styles kst) {
     switch (kst) {
         case CLASSIC:
             return "CLASSIC";
@@ -665,7 +673,7 @@ char* kst_to_str(K_styles kst) {
     }
 }
 
-char* bst_to_str(B_styles bst) {
+const char* bst_to_str(B_styles bst) {
     switch (bst) {
         case ADJACENT:
             return "ADJACENT";
@@ -682,79 +690,83 @@ char* bst_to_str(B_styles bst) {
     }
 }
 
-char* genotype_bitstring(uint32_t s, uint32_t N) {
+void print_genotype_bitstring(uint32_t s, uint32_t N) {
     char ret[200];
     ret[0] = ((s & 1)==0)?'0':'1';
     for (uint32_t i = 1; i < N; i++) {
         ret[i] = ((s & (1<<i))==0)?'0':'1';
     }
     ret[N] = 0;
-    return ret;
+    printf("%s", ret);
 }
 
-char* pretty_print_node(node* n, uint32_t N, uint8_t do_rank) {
-    char ret[200];
-    if (do_rank)
-        sprintf(ret, "genotype = %s\n... fitness = %f\n... rank = %d\n", genotype_bitstring(n->genotype, N), n->fitness, n->rank);
-    else
-        sprintf(ret, "genotype = %s\n... fitness = %f\n", genotype_bitstring(n->genotype, N), n->fitness);
-    
-    return ret;
+void pretty_print_node(node* n, uint32_t N, uint8_t do_rank) {
+    if (do_rank) {
+        printf("genotype = ");
+        print_genotype_bitstring(n->genotype, N);
+        printf("\n... fitness = %f\n... rank = %d\n", n->fitness, n->rank);
+    }
+    else {
+        printf("genotype = ");
+        print_genotype_bitstring(n->genotype, N);
+        printf("\n... fitness = %f\n", n->fitness);
+    }
 }
 
-char* pretty_print_bitstring_list(uint32_t* list, uint32_t list_len, uint32_t str_len) {
+void pretty_print_bitstring_list(uint32_t* list, uint32_t list_len, uint32_t str_len) {
     char ret[32*list_len];
     char* rp = ret;
     for (uint32_t i = 0; i < list_len-1; i++) {
-        rp += sprintf(rp, "%s, ", genotype_bitstring(list[i], str_len));
+        print_genotype_bitstring(list[i], str_len);
+        printf(", ");
     }
-    rp += sprintf(rp, "%s", genotype_bitstring(list[list_len-1], str_len));
-
-    return ret;
+    
+    print_genotype_bitstring(list[list_len-1], str_len);
 }
 
-char* pretty_print_integer_list(uint32_t* list, uint32_t list_len) {
-    char ret[8*list_len];
-    char* rp = ret;
+void pretty_print_integer_list(uint32_t* list, uint32_t list_len) {
     for (uint32_t i = 0; i < list_len-1; i++) {
-        rp += sprintf(rp, "%d, ", list[i]);
+        printf("%d, ", list[i]);
     }
-    rp += sprintf(rp, "%s", list[list_len-1]);
-
-    return ret;
+    printf("%d", list[list_len-1]);
 }
 
-char* pretty_print_K_neighborhood(K_neighborhood* kn, uint32_t N, uint32_t K) {
-    char ret[5000];
-    char* rp = ret;
-    rp += sprintf(ret, "... B = {%s}\n... ", pretty_print_integer_list(kn->B, K));
+void pretty_print_K_neighborhood(K_neighborhood* kn, uint32_t N, uint32_t K) {
+    printf("... B = {");
+    pretty_print_integer_list(kn->B, K);
+    printf("}\n... ");
     for (uint32_t i = 0; i < (1<<K)-1; i++) {
-        rp += sprintf(rp, "%s -> %f, ", genotype_bitstring(i, K), kn->fitnesses[i]);
+        print_genotype_bitstring(i, K);
+        printf(" -> %f, ", kn->fitnesses[i]);
     }
-    rp += sprintf(rp, "%s -> %f\n", genotype_bitstring((1<<K)-1, K), kn->fitnesses[(1<<K)-1]);
-
-    return ret;
+    print_genotype_bitstring((1<<K)-1, K);
+    printf(" -> %f\n",  kn->fitnesses[(1<<K)-1]);
 }
 
 void pretty_print_NK(NK_landscape* nk) {
     printf("--- Pretty print of NK landscape at %p ---\n", nk);
     printf("N = %d, K = %d, K_style = %s, B_style = %s\n", nk->N, nk->K, kst_to_str(nk->kst), bst_to_str(nk->bst));
     for (uint32_t i = 0; i < (1<<(nk->N)); i++) {
-        printf("%s\n", pretty_print_node(&(nk->nodes[i]), nk->N, 1));
+        pretty_print_node(&(nk->nodes[i]), nk->N, 1);
+        printf("\n");
     }
     for (uint32_t i = 0; i < nk->N; i++) {
-        printf("%s\n", pretty_print_K_neighborhood(&(nk->nbs[i]), nk->N, nk->K));
+        pretty_print_K_neighborhood(&(nk->nbs[i]), nk->N, nk->K);
+        printf("\n");
     }
 }
 
 void pretty_print_HNK(HNK_landscape* hnk) {
     printf("--- Pretty print of HNK landscape at %p ---\n", hnk);
-    printf("H = %d, N = %d, K = %d, B_style = %s\n", hnk->H, hnk->N, hnk->K, hnk->bst);
+    printf("H = %d, N = %d, K = %d, B_style = %s\n", hnk->H, hnk->N, hnk->K, bst_to_str(hnk->bst));
     for (uint32_t i = 0; i < (1<<(hnk->N + hnk->H)); i++) {
-        printf("%s\n", pretty_print_node(&(hnk->nodes[i]), hnk->N + hnk->H, 0));
+        pretty_print_node(&(hnk->nodes[i]), hnk->N + hnk->H, 0);
+        printf("\n"); 
     }
-    printf("G = {%s}\n", pretty_print_bitstring_list(hnk->G, hnk->H, hnk->N));
-    printf("Underlying gamma landscape:\n");
+    printf("G = {"); 
+    pretty_print_bitstring_list(hnk->G, hnk->H, hnk->N);
+    printf("}\n"); 
+    printf("Underlying gamma landscape:\n"); 
     pretty_print_NK(&(hnk->gamma_landscape));
 }
 
@@ -768,6 +780,7 @@ int main(int argc, char** argv) {
     reroll_HNK(&hnk, BLOCKED, 1); // do rank just so we can test it
 
     pretty_print_HNK(&hnk); 
+    fflush(stdout);
 
     return EXIT_SUCCESS;
 }
