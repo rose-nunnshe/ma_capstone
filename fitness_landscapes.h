@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
 
 // there's a way to do this with #define _USE_MATH_DEFINES but it isn't worth debugging it
 #define M_PI 3.14159265358979323846
@@ -44,7 +45,7 @@ typedef struct HNK_landscape {
     B_styles bst;
     node* nodes; // H+N-length bitstring nodes
     uint32_t* G; // control interaction sets (expressed as N length bit-strings)
-    NK_landscape gamma_landscape; // "masked" genotype landscape
+    NK_landscape* gamma_landscape; // "masked" genotype landscape
 } HNK_landscape;
 
 uint32_t hammd(uint32_t s1, uint32_t s2) {
