@@ -1,5 +1,10 @@
 #include <fitness_landscapes.h>
 
+static uint32_t failure_count = 0;
+static uint32_t NK_reroll_count = 0;
+
+static const uint8_t global_verbose = 0;
+
 const char* kst_to_str(K_styles kst) {
     switch (kst) {
         case CLASSIC:
@@ -61,7 +66,7 @@ void init_NK(NK_landscape* nk, uint32_t N, uint32_t K) {
     for (uint32_t n = 0; n < N; n++) {
         K_neighborhood* nb = nk->nbs + n;
         nb->B = (uint32_t*)malloc(K*sizeof(uint32_t));
-        nb->fitnesses = (float*)malloc((1<<K)*sizeof(float));
+        nb->fitnesses = (double*)malloc((1<<K)*sizeof(double));
     }
     // printf("</init_NK>\n");
 }
@@ -79,7 +84,7 @@ void deinit_NK(NK_landscape* nk) {
 
 // arg1 and arg2 are node pointers
 int compare1(const void* arg1, const void* arg2) {
-    float diff1 = ((node*)arg1)->fitness - ((node*)arg2)->fitness;
+    double diff1 = ((node*)arg1)->fitness - ((node*)arg2)->fitness;
     if (diff1 < 0) return -1;
     if (diff1 > 0) return 1;
     return 0;
@@ -88,10 +93,10 @@ int compare2(const void* arg1, const void* arg2) {
     return ((node*)arg1)->genotype - ((node*)arg2)->genotype;
 }
 
-float NK_calc_fitness(NK_landscape* nk, uint32_t s, uint8_t verbose) {
+double NK_calc_fitness(NK_landscape* nk, uint32_t s, uint8_t verbose) {
     uint32_t N = nk->N;
     uint32_t K = nk->K;
-    float fit = 0.0;
+    double fit = 0.0;
     if (verbose) { 
         printf("Calculating fitness of ");
         print_genotype_bitstring(s, N);
@@ -123,6 +128,7 @@ float NK_calc_fitness(NK_landscape* nk, uint32_t s, uint8_t verbose) {
 // DOES NOT allocate anything (N and K already need to be correctly set up)
 void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
     // printf("<reroll_NK>\n");
+    NK_reroll_count++;
     uint32_t K = nk->K;
     uint32_t N = nk->N;
     nk->kst = kst;
@@ -150,7 +156,7 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
                         else {
                             // it's possible we will randomly choose an already-included locus, so
                             // we have to reroll the random selection until we get a new one
-                            uint32_t candidate = rand() % N;
+                            uint32_t candidate = genrand_int32() % N;
                             uint32_t j = 0;
                             while (j < i) {
                                 if (candidate != (nb->B)[j]) { // no collision at this index
@@ -158,7 +164,7 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
                                 }
                                 else {
                                     // collision, have to start over
-                                    candidate = rand() % N;
+                                    candidate = genrand_int32() % N;
                                     j = 0;
                                 }
                             }
@@ -176,14 +182,14 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
 
             if (kst == CLASSIC) {
                 for (uint32_t s = 0; s < (1<<K); s++) {
-                    (nb->fitnesses)[s] = (rand() + 0.0)/RAND_MAX;
+                    (nb->fitnesses)[s] = boxmuller();
                 }
             }
             else {
                 // need to choose a peak genotype
-                uint32_t delta = rand() % (1<<K);
+                uint32_t delta = genrand_int32() % (1<<K);
 
-                float theta = 1.0;
+                double theta = 1.0;
                 if (kst == RMF_2) theta = 2.0;
                 if (kst == RMF_3) theta = 3.0;
 
@@ -218,19 +224,20 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
             // error check: no one can be tied
             for (uint32_t s = 1; s < (1<<N); s++) {
                 if ((nk->nodes)[s].fitness == (nk->nodes)[s-1].fitness) {
-                    /*
-                    printf("***** Holy God, it's a tie! (%f, genotype ", nk->nodes[s].fitness); 
-                    print_genotype_bitstring(nk->nodes[s].genotype, nk->N);
-                    printf(" with %f, genotype ", nk->nodes[s-1].fitness); 
-                    print_genotype_bitstring(nk->nodes[s-1].genotype, nk->N); 
-                    printf(") *****\n"); 
+                    if (global_verbose > 10) {
+                        printf("***** Holy God, it's a tie! (%f, genotype ", nk->nodes[s].fitness); 
+                        print_genotype_bitstring(nk->nodes[s].genotype, nk->N);
+                        printf(" with %f, genotype ", nk->nodes[s-1].fitness); 
+                        print_genotype_bitstring(nk->nodes[s-1].genotype, nk->N); 
+                        printf(") *****\n"); 
+                    }
                     
                     // need to interrogate exactly how this happened
                     NK_calc_fitness(nk, nk->nodes[s].genotype, 1);
                     NK_calc_fitness(nk, nk->nodes[s-1].genotype, 1);
-                    */
                     // if we didn't get an injective function, we just have to try again.
                     succeeded = 0; 
+                    failure_count++;
                     break;
                 }
             }
@@ -294,9 +301,9 @@ void reroll_HNK(HNK_landscape* hnk, B_styles bst, uint8_t do_rank) {
     for (uint32_t h = 0; h < H; h++) {
         uint32_t G_h = 0;
         for (uint32_t i = 0; i < K; i++) {
-            uint32_t candidate = 1 << (rand() % N);
+            uint32_t candidate = 1 << (genrand_int32() % N);
             while (G_h & candidate) { // this bit was picked before
-                candidate = 1 << (rand() % N);
+                candidate = 1 << (genrand_int32() % N);
             }
             G_h |= candidate;
         }
@@ -443,21 +450,21 @@ uint32_t NK_calc_p_1_recur(NK_landscape* nk, uint8_t* backtracking, uint32_t s) 
 }
 
 // calculates p_1 by working from the global optimum outward
-float NK_calc_p_1(NK_landscape* nk, uint8_t* backtracking) {
+double NK_calc_p_1(NK_landscape* nk, uint8_t* backtracking) {
     for (uint32_t s = 0; s < (1<<(nk->N)); s++) {
         backtracking[s] = 0;
     }
 
-    return (NK_calc_p_1_recur(nk, backtracking, NK_find_gopt(nk))+0.0)/(1<<(nk->N));
+    return ((double)NK_calc_p_1_recur(nk, backtracking, NK_find_gopt(nk)))/(1<<(nk->N));
 }
 
-float NK_alt_p_1(NK_landscape* nk, uint8_t* backtracking) {
+double NK_alt_p_1(NK_landscape* nk, uint8_t* backtracking) {
     uint32_t count = 0;
     for (uint32_t s = 0; s < (1<<(nk->N)); s++) {
         if (NK_has_access(nk, s, backtracking)) count++;
     }
     
-    return (count + 0.0)/(1<<(nk->N));
+    return ((double)count)/(1<<(nk->N));
 }
 
 // slower HNK local optimum function that is used to check fast version
@@ -521,11 +528,11 @@ uint32_t HNK_find_fully_expressed_gopt(HNK_landscape* hnk) {
     uint32_t H = hnk->H;
     uint32_t N = hnk->N;
     uint32_t h_mask = (1 << H)-1;
-    float max_fit = hnk->nodes[h_mask].fitness;
+    double max_fit = hnk->nodes[h_mask].fitness;
     uint32_t max_s = hnk->nodes[h_mask].genotype;
 
     for (uint32_t s = (1<<H) + h_mask; s < (1<<(N+H)); s += (1<<H)) {
-        float this_fit = hnk->nodes[s].fitness;
+        double this_fit = hnk->nodes[s].fitness;
         if (this_fit > max_fit) {
             max_fit = this_fit;
             max_s = s;
@@ -545,7 +552,7 @@ uint32_t HNK_calc_p_1_recur(HNK_landscape* hnk, uint8_t* backtracking, uint32_t 
     uint32_t h_mask = (1<<H)-1;
     if ((s & h_mask) == h_mask) {
         ret += 1; // this is a fully-expressed genotype
-        printf("[REGULAR] genotype "); print_genotype_bitstring(s, hnk->H+hnk->N); printf(" has access\n");
+        // printf("[REGULAR] genotype "); print_genotype_bitstring(s, hnk->H+hnk->N); printf(" has access\n");
     }
 
     // look for neighbors
@@ -560,7 +567,7 @@ uint32_t HNK_calc_p_1_recur(HNK_landscape* hnk, uint8_t* backtracking, uint32_t 
 }
 
 // calculate p_1 for a given HNK landscape (requires rank data)
-float HNK_calc_p_1(HNK_landscape* hnk, uint8_t* backtracking) {
+double HNK_calc_p_1(HNK_landscape* hnk, uint8_t* backtracking) {
     // set up anti-backtracking helpers
     for (uint32_t i = 0; i < (1<<(hnk->N+hnk->H)); i++) {
         backtracking[i] = 0;
@@ -569,12 +576,12 @@ float HNK_calc_p_1(HNK_landscape* hnk, uint8_t* backtracking) {
     uint32_t gopt = HNK_find_fully_expressed_gopt(hnk);
     // elaborate from gopt with non-increasing fitness, only counting fully expressed genotypes
     // but being allowed to visit non-fully expressed genotypes during recursion
-    return (HNK_calc_p_1_recur(hnk, backtracking, gopt)+0.0)/(1<<(hnk->N));
+    return ((double)HNK_calc_p_1_recur(hnk, backtracking, gopt))/(1<<(hnk->N));
 }
 
 // over nReps HNK landscapes, count how many had a fully expressed global optimum, how many had a 
 // non-fully expressed global optimum, and p_1 for each case
-void test_HNK(uint32_t H, uint32_t N, uint32_t K, B_styles bst, uint32_t nReps, uint32_t* fexn, uint32_t* nexn, float* p_1F, float* p_1N) {
+void test_HNK(uint32_t H, uint32_t N, uint32_t K, B_styles bst, uint32_t nReps, uint32_t* fexn, uint32_t* nexn, double* p_1F, double* p_1N) {
     HNK_landscape hnk;
     init_HNK(&hnk, H, N, K);
     uint8_t* backtracking = (uint8_t*)malloc((1<<(H+N))*sizeof(uint8_t));
@@ -585,7 +592,7 @@ void test_HNK(uint32_t H, uint32_t N, uint32_t K, B_styles bst, uint32_t nReps, 
     for (uint32_t i = 0; i < nReps; i++) {
         reroll_HNK(&hnk, bst, 0); // never do rank, it isn't used
         uint32_t gopt = HNK_find_fully_expressed_gopt(&hnk);
-        float pj = HNK_calc_p_1(&hnk, backtracking);
+        double pj = HNK_calc_p_1(&hnk, backtracking);
         if (HNK_check_gopt(&hnk, gopt)) {
             (*fexn)++;
             (*p_1F) += pj;
@@ -604,7 +611,7 @@ void test_HNK(uint32_t H, uint32_t N, uint32_t K, B_styles bst, uint32_t nReps, 
 
 // determines the average number of local optima and average probability of 1-accessibility
 // over nReps NK landscapes with N, K, and the chosen B and K styles
-void test_mod_NK(uint32_t N, uint32_t K, B_styles bst, K_styles kst, uint32_t nReps, uint32_t* nopt, float* p_1) {
+void test_mod_NK(uint32_t N, uint32_t K, B_styles bst, K_styles kst, uint32_t nReps, uint32_t* nopt, double* p_1) {
     NK_landscape nk;
     init_NK(&nk, N, K);
     uint8_t* backtracking = (uint8_t*)malloc((1<<N)*sizeof(uint8_t));
@@ -639,7 +646,7 @@ void run_tests() {
 
     uint32_t nReps = 10000;
     uint32_t nopt;
-    float p_1;
+    double p_1;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
     printf("IDEA 1: ADJACENT, CLASSIC; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
 
@@ -715,8 +722,8 @@ void run_tests() {
     nReps = 10000;
     uint32_t fexn;
     uint32_t nexn;
-    float p_1F;
-    float p_1N;
+    double p_1F;
+    double p_1N;
 
     //////////////////////////
     // H = 1
@@ -797,7 +804,7 @@ void pretty_print_node(node* n, NK_landscape* nk, uint8_t bitstring_genotype, ui
     }
     
     // manual recalculation of fitness
-    float recalc_fitness = 0.0;
+    double recalc_fitness = 0.0;
     for (uint32_t i = 0; i < N; i++) {
         // isolate the relevant loci
         uint32_t subgenotype = 0;
@@ -914,7 +921,7 @@ void pretty_print_HNK(HNK_landscape* hnk, uint8_t genotype_bitstring) {
     printf("!HNK\n");
 }
 
-void HNK_audit_localmax(HNK_landscape* hnk) {
+uint32_t HNK_audit_localmax(HNK_landscape* hnk) {
     uint8_t* scratch = (uint8_t*)malloc((1<<(hnk->H+hnk->N))*sizeof(uint8_t));
     uint32_t total_maxima = HNK_count_local_optima(hnk, scratch);
     printf("Auditing local maxima (expecting %d):\n", total_maxima);
@@ -922,13 +929,13 @@ void HNK_audit_localmax(HNK_landscape* hnk) {
     for (uint32_t s = 0; s < (1 << (hnk->N)); s++) {
         uint32_t hs = (s << (hnk->H)) + ((1 << (hnk->H))-1);
         uint8_t is_local_max = 1;
-        float sfit = hnk->nodes[hs].fitness;
+        double sfit = hnk->nodes[hs].fitness;
         pretty_print_HNK_node(&(hnk->nodes[hs]), hnk, 1, 1);
         for (uint32_t m = (1<<(hnk->H)); m < (1 << (hnk->N + hnk->H)); m<<=1) {
             uint32_t mod = hs ^ m;
             printf("... ");
             print_genotype_bitstring(mod, hnk->N + hnk->H);
-            float mfit = hnk->nodes[mod].fitness;
+            double mfit = hnk->nodes[mod].fitness;
             if (mfit > sfit) is_local_max = 0;
             printf(": %g\n", mfit);
         }
@@ -944,33 +951,67 @@ void HNK_audit_localmax(HNK_landscape* hnk) {
     else {
       printf("Optima count matched.\n");
     }
+    
+    return count;
+}
+
+uint32_t NK_audit_localmax(NK_landscape* nk) {
+    uint32_t total_maxima = NK_count_local_optima(nk);
+    printf("Auditing local maxima (expecting %d):\n", total_maxima);
+    uint32_t count = 0;
+    for (uint32_t s = 0; s < (1 << (nk->N)); s++) {
+        uint8_t is_local_max = 1;
+        double sfit = nk->nodes[s].fitness;
+        pretty_print_node(&(nk->nodes[s]), nk, 1, 1);
+        for (uint32_t m = 1; m < (1 << (nk->N)); m<<=1) {
+            uint32_t mod = s ^ m;
+            printf("... ");
+            print_genotype_bitstring(mod, nk->N);
+            double mfit = nk->nodes[mod].fitness;
+            if (mfit > sfit) is_local_max = 0;
+            printf(": %g\n", mfit);
+        }
+        if (is_local_max) {
+            printf("... ** local maximum **\n");
+            count++;
+        }
+        printf("\n");
+    }
+    if (total_maxima != count) {
+      printf("***** mismatch optima count: %d expected versus %d counted\n", total_maxima, count);
+    }
+    else {
+      printf("Optima count matched.\n");
+    }
+    
+    return count;
 }
 
 // very slow alternate method of finding the p_1 value
-float HNK_alt_p_1(HNK_landscape* hnk, uint8_t* backtracking) {
+double HNK_alt_p_1(HNK_landscape* hnk, uint8_t* backtracking) {
     uint32_t count = 0;
     for (uint32_t s = 0; s < (1<<(hnk->N)); s++) {
         uint32_t hs = (s << (hnk->H)) + (1<<(hnk->H))-1;
         if (HNK_has_access(hnk, hs, backtracking)) {
             count++;
-            printf("[ALT] genotype "); print_genotype_bitstring(hs, hnk->H+hnk->N); printf(" has access\n");
+            // printf("[ALT] genotype "); print_genotype_bitstring(hs, hnk->H+hnk->N); printf(" has access\n");
         }
     }
     
-    return (count + 0.0)/(1<<(hnk->N));
+    return ((double)count)/(1<<(hnk->N));
 }
 
-void HNK_audit_p_1(HNK_landscape* hnk) {
+double HNK_audit_p_1(HNK_landscape* hnk) {
     uint8_t* scratch = (uint8_t*)malloc((1<<(hnk->N+hnk->H))*sizeof(uint8_t));
     clock_t start = clock();
-    float standard_p_1 = HNK_calc_p_1(hnk, scratch);
+    double standard_p_1 = HNK_calc_p_1(hnk, scratch);
     clock_t stop = clock();
-    printf("Result from regular (fast) method: %g (%lf seconds)\n", standard_p_1, (float)(stop - start) / CLOCKS_PER_SEC);
+    printf("Result from regular (fast) method: %g (%lf seconds)\n", standard_p_1, (double)(stop - start) / CLOCKS_PER_SEC);
     // fflush(stdout);
     start = clock();
-    float alt_p_1 = HNK_alt_p_1(hnk, scratch);
+    double alt_p_1 = HNK_alt_p_1(hnk, scratch);
     stop = clock();
-    printf("Result from hammd (slower) method: %g (%lf seconds)\n", alt_p_1, (float)(stop - start) / CLOCKS_PER_SEC);
+    printf("Result from counting (slower) method: %g (%lf seconds)\n", alt_p_1, (double)(stop - start) / CLOCKS_PER_SEC);
     // fflush(stdout);
     if (standard_p_1 != alt_p_1) {
         printf("***** p_1 calculation mismatch *****\n");
@@ -979,27 +1020,68 @@ void HNK_audit_p_1(HNK_landscape* hnk) {
       printf("p_1 calculation matched.\n");
     }
     free(scratch);
+    
+    return standard_p_1;
+}
+
+double NK_audit_p_1(NK_landscape* nk) {
+    uint8_t* scratch = (uint8_t*)malloc((1<<(nk->N))*sizeof(uint8_t));
+    clock_t start = clock();
+    double standard_p_1 = NK_calc_p_1(nk, scratch);
+    clock_t stop = clock();
+    printf("Result from regular (fast) method: %g (%lf seconds)\n", standard_p_1, (double)(stop - start) / CLOCKS_PER_SEC);
+    // fflush(stdout);
+    start = clock();
+    double alt_p_1 = NK_alt_p_1(nk, scratch);
+    stop = clock();
+    printf("Result from counting (slower) method: %g (%lf seconds)\n", alt_p_1, (double)(stop - start) / CLOCKS_PER_SEC);
+    // fflush(stdout);
+    if (standard_p_1 != alt_p_1) {
+        printf("***** p_1 calculation mismatch *****\n");
+    }
+    else {
+      printf("p_1 calculation matched.\n");
+    }
+    free(scratch);
+    
+    return standard_p_1;
 }
 
 int main(int argc, char** argv) {
+    init_genrand(0xa3a5b7d9UL); // this number has no significance, it just has to be a 32-bit, non-zero integer
+    failure_count = 0;
+    NK_reroll_count = 0;
+    uint32_t N;
+    uint32_t K;
+    
+    double cm_p_1 = 0.0;
+    double cm_lm = 0.0;
+    
+    uint32_t reps = 10000;
+    
+    /*
     // HNK landscape example
-    srand(0);
     HNK_landscape hnk;
     uint32_t H = 3;
-    uint32_t N = 8;
-    uint32_t K = 4;
-    init_HNK(&hnk, 3, 8, 4);
+    N = 8;
+    K = 4;
+    init_HNK(&hnk, H, N, K);
+    */
     
-    for (uint32_t i = 0; i < 1000; i++) {
-        reroll_HNK(&hnk, RANDOM, 1); // do rank just so we can test it
-
-        pretty_print_HNK(&hnk, 1);
-        fflush(stdout);
-        HNK_audit_localmax(&hnk);
-        fflush(stdout);
-        HNK_audit_p_1(&hnk);
-        fflush(stdout);
+    // NK RMF landscape example
+    N = 8;
+    K = 4;
+    NK_landscape nk;
+    init_NK(&nk, N, K);
+    for (uint32_t i = 0; i < reps; i++) {
+        reroll_NK(&nk, RMF_1, BLOCKED, 1);
+        pretty_print_NK(&nk, 1);
+        cm_lm += NK_audit_localmax(&nk);
+        cm_p_1 += NK_audit_p_1(&nk);
     }
+    
+    printf("Final NK failure count: %d out of a total of %d rerolls (%g%%)\n", failure_count, NK_reroll_count, (double)failure_count/NK_reroll_count*100);
+    printf("Final average p_1: %f; Final average local opt count: %f\n", cm_p_1/reps, cm_lm/reps);
 
     return EXIT_SUCCESS;
 }

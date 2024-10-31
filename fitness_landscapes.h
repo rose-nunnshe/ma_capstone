@@ -5,25 +5,26 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <mt19937.h>
 
 // there's a way to do this with #define _USE_MATH_DEFINES but it isn't worth debugging it
 #define M_PI 3.14159265358979323846
 
-float boxmuller() {
-    float u1 = (rand() + 0.0)/RAND_MAX;
-    float u2 = (rand() + 0.0)/RAND_MAX;
+double boxmuller() {
+    double u1 = genrand_float32_full();
+    double u2 = genrand_float32_full();
     return sqrt(-2*log(u2))*cos(2*M_PI*u1);
 }
 
 typedef struct node {
     uint32_t genotype; // bitstring
     uint32_t rank;     // integer, least fit is rank 1
-    float fitness;     // real number, higher is more fit
+    double fitness;     // real number, higher is more fit
 } node;
 
 typedef struct K_neighborhood {
     uint32_t* B; // K-length list of the loci in the order they are used to generate the sub-genotype
-    float* fitnesses; // 2^K-length list of the fitness values assigned to each sub-genotype
+    double* fitnesses; // 2^K-length list of the fitness values assigned to each sub-genotype
 } K_neighborhood;
 
 typedef enum B_styles {BLOCKED, ADJACENT, RANDOM} B_styles;
