@@ -611,11 +611,11 @@ void test_HNK(uint32_t H, uint32_t N, uint32_t K, B_styles bst, uint32_t nReps, 
 
 // determines the average number of local optima and average probability of 1-accessibility
 // over nReps NK landscapes with N, K, and the chosen B and K styles
-void test_mod_NK(uint32_t N, uint32_t K, B_styles bst, K_styles kst, uint32_t nReps, uint32_t* nopt, double* p_1) {
+void test_mod_NK(uint32_t N, uint32_t K, B_styles bst, K_styles kst, uint32_t nReps, double* nopt, double* p_1) {
     NK_landscape nk;
     init_NK(&nk, N, K);
     uint8_t* backtracking = (uint8_t*)malloc((1<<N)*sizeof(uint8_t));
-    (*nopt) = 0;
+    (*nopt) = 0.0;
     (*p_1) = 0.0;
 
     for (uint32_t i = 0; i < nReps; i++) {
@@ -634,8 +634,8 @@ void run_tests() {
     //////////////////////////
     // IDEA 1: modified NK
     //////////////////////////
-    uint32_t N = 6;
-    uint32_t K = 3;
+    uint32_t N = 8;
+    uint32_t K = 4;
 
     //////////////////////////
     // Adjacent neighborhoods
@@ -644,26 +644,26 @@ void run_tests() {
     // Classic NK
     K_styles kst = CLASSIC;
 
-    uint32_t nReps = 10000;
-    uint32_t nopt;
+    uint32_t nReps = 1000000;
+    double nopt;
     double p_1;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: ADJACENT, CLASSIC; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: ADJACENT, CLASSIC; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 1
     kst = RMF_1;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: ADJACENT, RMF theta=1; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: ADJACENT, RMF theta=1; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 2
     kst = RMF_2;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: ADJACENT, RMF theta=2; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: ADJACENT, RMF theta=2; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 3
     kst = RMF_3;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: ADJACENT, RMF theta=3; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: ADJACENT, RMF theta=3; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     //////////////////////////
     // Blocked neighborhoods
@@ -672,54 +672,54 @@ void run_tests() {
     // Classic NK
     kst = CLASSIC;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: BLOCKED, CLASSIC; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: BLOCKED, CLASSIC; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 1
     kst = RMF_1;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: BLOCKED, RMF theta=1; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: BLOCKED, RMF theta=1; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 2
     kst = RMF_2;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: BLOCKED, RMF theta=2; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: BLOCKED, RMF theta=2; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 3
     kst = RMF_3;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: BLOCKED, RMF theta=3; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: BLOCKED, RMF theta=3; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     //////////////////////////
     // Random neighborhoods
     bst = RANDOM;
-    nReps = 1000000;
+    nReps = 100000000;
 
     // Classic NK
     kst = CLASSIC;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: RANDOM, CLASSIC; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: RANDOM, CLASSIC; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 1
     kst = RMF_1;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: RANDOM, RMF theta=1; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: RANDOM, RMF theta=1; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 2
     kst = RMF_2;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: RANDOM, RMF theta=2; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: RANDOM, RMF theta=2; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     // RMF theta = 3
     kst = RMF_3;
     test_mod_NK(N, K, bst, kst, nReps, &nopt, &p_1);
-    printf("IDEA 1: RANDOM, RMF theta=3; nReps = %d; nopt = %d, p_1 = %g\n", nReps, nopt, p_1);
+    printf("IDEA 1: RANDOM, RMF theta=3; nReps = %d; nopt = %f, p_1 = %g\n", nReps, nopt, p_1);
 
     //////////////////////////
     // IDEA 2: HNK
     //////////////////////////
     N = 8;
     K = 4;
-    nReps = 10000;
+    nReps = 1000000;
     uint32_t fexn;
     uint32_t nexn;
     double p_1F;
@@ -741,14 +741,14 @@ void run_tests() {
 
     // Random neighborhoods
     bst = RANDOM;
-    nReps = 10000000;
+    nReps = 100000000;
     test_HNK(H, N, K, bst, nReps, &fexn, &nexn, &p_1F, &p_1N);
     printf("IDEA 2: H=1, RANDOM; nReps = %d; fexn = %d, nexn = %d, p_1F = %g, p_1N = %g\n", nReps, fexn, nexn, p_1F, p_1N);
     
     //////////////////////////
     // H = 2
     H = 2;
-    nReps = 10000;
+    nReps = 1000000;
 
     // Adjacent neighborhoods
     bst = ADJACENT;
@@ -762,14 +762,14 @@ void run_tests() {
 
     // Random neighborhoods
     bst = RANDOM;
-    nReps = 10000000;
+    nReps = 100000000;
     test_HNK(H, N, K, bst, nReps, &fexn, &nexn, &p_1F, &p_1N);
     printf("IDEA 2: H=2, RANDOM; nReps = %d; fexn = %d, nexn = %d, p_1F = %g, p_1N = %g\n", nReps, fexn, nexn, p_1F, p_1N);
 
     //////////////////////////
     // H = 3
     H = 3;
-    nReps = 10000;
+    nReps = 1000000;
 
     // Adjacent neighborhoods
     bst = ADJACENT;
@@ -783,7 +783,7 @@ void run_tests() {
 
     // Random neighborhoods
     bst = RANDOM;
-    nReps = 10000000;
+    nReps = 100000000;
     test_HNK(H, N, K, bst, nReps, &fexn, &nexn, &p_1F, &p_1N);
     printf("IDEA 2: H=3, RANDOM; nReps = %d; fexn = %d, nexn = %d, p_1F = %g, p_1N = %g\n", nReps, fexn, nexn, p_1F, p_1N);
 }
@@ -1051,37 +1051,14 @@ int main(int argc, char** argv) {
     init_genrand(0xa3a5b7d9UL); // this number has no significance, it just has to be a 32-bit, non-zero integer
     failure_count = 0;
     NK_reroll_count = 0;
-    uint32_t N;
-    uint32_t K;
     
-    double cm_p_1 = 0.0;
-    double cm_lm = 0.0;
-    
-    uint32_t reps = 10000;
-    
-    /*
-    // HNK landscape example
-    HNK_landscape hnk;
-    uint32_t H = 3;
-    N = 8;
-    K = 4;
-    init_HNK(&hnk, H, N, K);
-    */
-    
-    // NK RMF landscape example
-    N = 8;
-    K = 4;
-    NK_landscape nk;
-    init_NK(&nk, N, K);
-    for (uint32_t i = 0; i < reps; i++) {
-        reroll_NK(&nk, RMF_1, BLOCKED, 1);
-        pretty_print_NK(&nk, 1);
-        cm_lm += NK_audit_localmax(&nk);
-        cm_p_1 += NK_audit_p_1(&nk);
-    }
+    clock_t start = clock();
+    run_tests();
+    clock_t stop = clock();
+    double time_s = (double)(stop - start) / CLOCKS_PER_SEC;
+    printf("Final time: %d h : %d m : %d s\n", (uint64_t)(time_s/3600), (uint64_t)((time_s - 3600*(uint64_t)(time_s/3600))/60), (uint64_t)(time_s - 60*(uint64_t)(time_s/60)));
     
     printf("Final NK failure count: %d out of a total of %d rerolls (%g%%)\n", failure_count, NK_reroll_count, (double)failure_count/NK_reroll_count*100);
-    printf("Final average p_1: %f; Final average local opt count: %f\n", cm_p_1/reps, cm_lm/reps);
 
     return EXIT_SUCCESS;
 }

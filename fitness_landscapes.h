@@ -13,6 +13,7 @@
 double boxmuller() {
     double u1 = genrand_float32_full();
     double u2 = genrand_float32_full();
+    while (u2 == 0.0) u2 = genrand_float32_full(); // this prevents a -INF behavior
     return sqrt(-2*log(u2))*cos(2*M_PI*u1);
 }
 

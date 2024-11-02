@@ -1,0 +1,23 @@
+IDEA 1: ADJACENT, CLASSIC; nReps = 1000000; nopt = 9.075980, p_1 = 0.749939
+IDEA 1: ADJACENT, RMF theta=1; nReps = 1000000; nopt = 5.298096, p_1 = 0.884334
+IDEA 1: ADJACENT, RMF theta=2; nReps = 1000000; nopt = 2.607556, p_1 = 0.955875
+IDEA 1: ADJACENT, RMF theta=3; nReps = 1000000; nopt = 1.829289, p_1 = 0.97311
+IDEA 1: BLOCKED, CLASSIC; nReps = 1000000; nopt = 10.240977, p_1 = 0.497472
+IDEA 1: BLOCKED, RMF theta=1; nReps = 1000000; nopt = 5.626528, p_1 = 0.717479
+IDEA 1: BLOCKED, RMF theta=2; nReps = 1000000; nopt = 2.654168, p_1 = 0.874851
+IDEA 1: BLOCKED, RMF theta=3; nReps = 1000000; nopt = 1.853640, p_1 = 0.921591
+IDEA 1: RANDOM, CLASSIC; nReps = 100000000; nopt = 8.189670, p_1 = 0.762032
+IDEA 1: RANDOM, RMF theta=1; nReps = 100000000; nopt = 4.936574, p_1 = 0.89084
+IDEA 1: RANDOM, RMF theta=2; nReps = 100000000; nopt = 2.502220, p_1 = 0.959951
+IDEA 1: RANDOM, RMF theta=3; nReps = 100000000; nopt = 1.712688, p_1 = 0.980544
+IDEA 2: H=1, ADJACENT; nReps = 1000000; fexn = 937558, nexn = 62442, p_1F = 0.78976, p_1N = 0.848524
+IDEA 2: H=1, BLOCKED; nReps = 1000000; fexn = 937392, nexn = 62608, p_1F = 0.612522, p_1N = 0.73636
+IDEA 2: H=1, RANDOM; nReps = 100000000; fexn = 93750702, nexn = 6249298, p_1F = 0.797452, p_1N = 0.850381
+IDEA 2: H=2, ADJACENT; nReps = 1000000; fexn = 893406, nexn = 106594, p_1F = 0.818373, p_1N = 0.87037
+IDEA 2: H=2, BLOCKED; nReps = 1000000; fexn = 892376, nexn = 107624, p_1F = 0.691813, p_1N = 0.793061
+IDEA 2: H=2, RANDOM; nReps = 100000000; fexn = 89294119, nexn = 10705881, p_1F = 0.823104, p_1N = 0.870882
+IDEA 2: H=3, ADJACENT; nReps = 1000000; fexn = 856741, nexn = 143259, p_1F = 0.839027, p_1N = 0.885806
+IDEA 2: H=3, BLOCKED; nReps = 1000000; fexn = 857123, nexn = 142877, p_1F = 0.744899, p_1N = 0.829929
+IDEA 2: H=3, RANDOM; nReps = 100000000; fexn = 85728672, nexn = 14271328, p_1F = 0.842268, p_1N = 0.885321
+Final time: 13 h : 44 m : 12 s
+Final NK failure count: 0 out of a total of 714000000 rerolls (0%)
