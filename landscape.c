@@ -1,7 +1,7 @@
 #include <fitness_landscapes.h>
 
 static uint32_t failure_count = 0;
-static uint32_t NK_reroll_count = 0;
+static uint32_t NK_rebuild_count = 0;
 
 static const uint8_t global_verbose = 0;
 
@@ -124,11 +124,64 @@ double NK_calc_fitness(NK_landscape* nk, uint32_t s, uint8_t verbose) {
     return fit;
 }
 
+uint8_t NK_rebuild(NK_landscape* nk, uint8_t do_rank) {
+  NK_rebuild_count++;
+  uint32_t N = nk->N;
+  uint8_t succeeded = 1;
+  
+  // iterate through the genotypes building their fitness
+  for (uint32_t s = 0; s < (1<<N); s++) {
+      node* current = (nk->nodes) + s;
+      current->genotype = s;
+      current->fitness = NK_calc_fitness(nk, s, 0); // don't want verbose
+  }
+
+  // need to take a second pass to build their rank metadata (if wanted)
+  if (do_rank) {
+      // this is a grisly way to do this, but it is likely to be comparably fast 
+      // to simply finding the minimum fitness over and over again (which is O(2^(2N))).
+      // this approach is O(2*2^N*log(2^N)) = ~O(N*2^N) as opposed to O(4^N). Then again,
+      // for N <= 8, probably none of this matters.
+
+      // first, sort the nodes by fitness so they are in ascending order
+      qsort(nk->nodes, (1<<(nk->N)), sizeof(node), compare1);
+
+      // then, assign their ranks based on that order
+      for (uint32_t s = 0; s < (1<<N); s++) {
+          (nk->nodes)[s].rank = s+1; // least fit should be rank 1, not rank 0
+      }
+      
+      // error check: no one can be tied
+      for (uint32_t s = 1; s < (1<<N); s++) {
+          if ((nk->nodes)[s].fitness == (nk->nodes)[s-1].fitness) {
+              if (global_verbose > 10) {
+                  printf("***** Holy God, it's a tie! (%f, genotype ", nk->nodes[s].fitness);
+                  print_genotype_bitstring(nk->nodes[s].genotype, nk->N);
+                  printf(" with %f, genotype ", nk->nodes[s-1].fitness); 
+                  print_genotype_bitstring(nk->nodes[s-1].genotype, nk->N); 
+                  printf(") *****\n"); 
+              }
+              
+              // need to interrogate exactly how this happened
+              NK_calc_fitness(nk, nk->nodes[s].genotype, 1);
+              NK_calc_fitness(nk, nk->nodes[s-1].genotype, 1);
+              // if we didn't get an injective function, we just have to try again.
+              succeeded = 0; 
+              failure_count++;
+              break;
+          }
+      }
+
+      // then, sort the nodes by genotype so they're back in index order
+      qsort(nk->nodes, (1<<(nk->N)), sizeof(node), compare2);
+  }
+  return succeeded;
+}
+
 // builds neighborhoods, random fitness values, etc.
 // DOES NOT allocate anything (N and K already need to be correctly set up)
 void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
     // printf("<reroll_NK>\n");
-    NK_reroll_count++;
     uint32_t K = nk->K;
     uint32_t N = nk->N;
     nk->kst = kst;
@@ -199,52 +252,7 @@ void reroll_NK(NK_landscape* nk, K_styles kst, B_styles bst, uint8_t do_rank) {
             }
         }
 
-        // iterate through the genotypes building their fitness
-        for (uint32_t s = 0; s < (1<<N); s++) {
-            node* current = (nk->nodes) + s;
-            current->genotype = s;
-            current->fitness = NK_calc_fitness(nk, s, 0); // don't want verbose
-        }
-
-        // need to take a second pass to build their rank metadata (if wanted)
-        if (do_rank) {
-            // this is a grisly way to do this, but it is likely to be comparably fast 
-            // to simply finding the minimum fitness over and over again (which is O(2^(2N))).
-            // this approach is O(2*2^N*log(2^N)) = ~O(N*2^N) as opposed to O(4^N). Then again,
-            // for N <= 8, probably none of this matters.
-
-            // first, sort the nodes by fitness so they are in ascending order
-            qsort(nk->nodes, (1<<(nk->N)), sizeof(node), compare1);
-
-            // then, assign their ranks based on that order
-            for (uint32_t s = 0; s < (1<<N); s++) {
-                (nk->nodes)[s].rank = s+1; // least fit should be rank 1, not rank 0
-            }
-            
-            // error check: no one can be tied
-            for (uint32_t s = 1; s < (1<<N); s++) {
-                if ((nk->nodes)[s].fitness == (nk->nodes)[s-1].fitness) {
-                    if (global_verbose > 10) {
-                        printf("***** Holy God, it's a tie! (%f, genotype ", nk->nodes[s].fitness); 
-                        print_genotype_bitstring(nk->nodes[s].genotype, nk->N);
-                        printf(" with %f, genotype ", nk->nodes[s-1].fitness); 
-                        print_genotype_bitstring(nk->nodes[s-1].genotype, nk->N); 
-                        printf(") *****\n"); 
-                    }
-                    
-                    // need to interrogate exactly how this happened
-                    NK_calc_fitness(nk, nk->nodes[s].genotype, 1);
-                    NK_calc_fitness(nk, nk->nodes[s-1].genotype, 1);
-                    // if we didn't get an injective function, we just have to try again.
-                    succeeded = 0; 
-                    failure_count++;
-                    break;
-                }
-            }
-
-            // then, sort the nodes by genotype so they're back in index order
-            qsort(nk->nodes, (1<<(nk->N)), sizeof(node), compare2);
-        }
+        succeeded = NK_rebuild(nk, do_rank);
     }
     // so now, all nodes have a correct fitness and correct rank
     // printf("</reroll_NK>\n");
@@ -634,8 +642,8 @@ void run_tests() {
     //////////////////////////
     // IDEA 1: modified NK
     //////////////////////////
-    uint32_t N = 8;
-    uint32_t K = 4;
+    uint32_t N = 9;
+    uint32_t K = 3;
 
     //////////////////////////
     // Adjacent neighborhoods
@@ -717,8 +725,8 @@ void run_tests() {
     //////////////////////////
     // IDEA 2: HNK
     //////////////////////////
-    N = 8;
-    K = 4;
+    N = 9;
+    K = 3;
     nReps = 1000000;
     uint32_t fexn;
     uint32_t nexn;
@@ -1047,18 +1055,136 @@ double NK_audit_p_1(NK_landscape* nk) {
     return standard_p_1;
 }
 
+// will require optima to be allocated larger than the actual number turns out
+void NK_list_optima(NK_landscape* nk, uint32_t* optima, uint32_t* nOpt) {
+  uint32_t count = 0;
+  
+  for (uint32_t s = 0; s < (1<<(nk->N)); s++) {
+    uint8_t opt = 1;
+    for (uint32_t m = 1; m < (1<<(nk->N)); m<<=1) {
+      if (nk->nodes[s ^ m].fitness > nk->nodes[s].fitness) {
+        opt = 0;
+        break;
+      }
+    }
+    if (opt) {
+      optima[count++] = s;
+    }
+  }
+  
+  *nOpt = count;
+}
+
+double NK_calc_normalized_rank(NK_landscape* nk, uint32_t s) {
+  uint32_t gt = 0;
+  const double num_neighbors = nk->N;
+  
+  for (uint32_t m = 1; m < (1<<(nk->N)); m<<=1) {
+    if (nk->nodes[s ^ m].fitness < nk->nodes[s].fitness) {
+      gt++;
+    }
+  }
+  
+  return ((double)gt)/num_neighbors;
+}
+
+int compare3(const void* arg1, const void* arg2) {
+    double diff = (((double*)arg1) - ((double*)arg2));
+    if (diff < 0) return -1;
+    if (diff > 0) return 1;
+    else          return 0;
+}
+
+void NK_calc_D(NK_landscape* nk, uint32_t* optima, uint32_t nOpt, double* D) {
+  double nranks[nOpt];
+  for (uint32_t i = 0; i < nOpt; i++) {
+    nranks[i] = NK_calc_normalized_rank(nk, optima[i]);
+  }
+  
+  qsort(nranks, nOpt, sizeof(double), compare3);
+  /*
+  printf("# sorted nranks, nOpt = %d\n# ", nOpt);
+  for (uint32_t i = 0; i < nOpt; i++) {
+    printf("%f ", nranks[i]);
+  }
+  printf("\n");
+  */
+  
+  D[0] = 0.0;
+  double prev = 0.0;
+  uint32_t nri = 0;
+  for (uint32_t i = 1; i < D_PRECISION; i++) {
+    D[i] = prev;
+    while ((nri < nOpt) && (i >= nranks[nri]*(D_PRECISION-1))) { // has to be while because it's possible to have ties
+      D[i] = ((double)(nri+1))/nOpt;
+      nri++;
+      prev = D[i];
+    }
+  }
+}
+
+void NK_inject_one_disruption(NK_landscape* nk, double intensity) {
+  uint32_t neighborhood = genrand_int32() % (nk->N);
+  uint32_t subgenotype = genrand_int32() % (1<<(nk->K));
+  
+  nk->nbs[neighborhood].fitnesses[subgenotype] += intensity*boxmuller();
+  
+  NK_rebuild(nk, 1); // update ranks for the sake of not making a mess, it might be possible to skip
+}
+
+void print_D(double* D, uint32_t dis_count) {
+  for (uint32_t i = 0; i < D_PRECISION; i++) {
+    printf("%d %f %f\n", dis_count, ((double)i)/(D_PRECISION-1), D[i]);
+  }
+  printf("\n");
+}
+
+void run_disrupt_test() {
+  NK_landscape nk;
+  uint32_t N = 12;
+  uint32_t K = 4;
+  K_styles kst = CLASSIC;
+  B_styles bst = RANDOM;
+  init_NK(&nk, N, K);
+  reroll_NK(&nk, kst, bst, 1);
+  
+  double* D = (double*)malloc(D_PRECISION*sizeof(double));
+  uint32_t* optima = (uint32_t*)malloc(D_PRECISION*sizeof(uint32_t));
+  uint32_t nOpt = 0;
+  NK_list_optima(&nk, optima, &nOpt);
+  NK_calc_D(&nk, optima, nOpt, D);
+  print_D(D, 0); fflush(stdout);
+  
+  uint32_t num_disrupts = 50000;
+  double intensity = 5;
+  for (uint32_t i = 0; i < num_disrupts; i++) {
+    NK_inject_one_disruption(&nk, intensity);
+    NK_calc_D(&nk, optima, nOpt, D);
+    if ((i % 100) == 0) {
+      print_D(D, i+1); fflush(stdout);
+    }
+    // printf("Run %d of %d\n", i, num_disrupts); fflush(stdout);
+  }
+  
+  fflush(stdout);
+  deinit_NK(&nk);
+  free(D);
+  free(optima);
+}
+
 int main(int argc, char** argv) {
-    init_genrand(0xa3a5b7d9UL); // this number has no significance, it just has to be a 32-bit, non-zero integer
+    init_genrand(0xa3a5b7d8UL); // this number has no significance, it just has to be a 32-bit, non-zero integer
     failure_count = 0;
-    NK_reroll_count = 0;
+    NK_rebuild_count = 0;
     
     clock_t start = clock();
-    run_tests();
+    // run_tests();
+    run_disrupt_test();
     clock_t stop = clock();
     double time_s = (double)(stop - start) / CLOCKS_PER_SEC;
-    printf("Final time: %d h : %d m : %d s\n", (uint64_t)(time_s/3600), (uint64_t)((time_s - 3600*(uint64_t)(time_s/3600))/60), (uint64_t)(time_s - 60*(uint64_t)(time_s/60)));
+    printf("# Final time: %d h : %d m : %d s\n", (uint64_t)(time_s/3600), (uint64_t)((time_s - 3600*(uint64_t)(time_s/3600))/60), (uint64_t)(time_s - 60*(uint64_t)(time_s/60)));
     
-    printf("Final NK failure count: %d out of a total of %d rerolls (%g%%)\n", failure_count, NK_reroll_count, (double)failure_count/NK_reroll_count*100);
+    printf("# Final NK failure count: %d out of a total of %d rerolls (%g%%)\n", failure_count, NK_rebuild_count, (double)failure_count/NK_rebuild_count*100);
 
     return EXIT_SUCCESS;
 }

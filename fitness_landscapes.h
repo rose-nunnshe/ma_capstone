@@ -9,6 +9,7 @@
 
 // there's a way to do this with #define _USE_MATH_DEFINES but it isn't worth debugging it
 #define M_PI 3.14159265358979323846
+#define D_PRECISION 1001
 
 double boxmuller() {
     double u1 = genrand_float32_full();
