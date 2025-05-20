@@ -6,6 +6,8 @@
 #include <math.h>
 #include <time.h>
 #include <mt19937.h>
+#include <cryptrand.h>
+#include <vector>
 
 // there's a way to do this with #define _USE_MATH_DEFINES but it isn't worth debugging it
 #define M_PI 3.14159265358979323846
@@ -15,7 +17,7 @@ double boxmuller() {
     double u1 = genrand_float32_full();
     double u2 = genrand_float32_full();
     while (u2 == 0.0) u2 = genrand_float32_full(); // this prevents a -INF behavior
-    return sqrt(-2*log(u2))*cos(2*M_PI*u1);
+    return sqrt(-2.0*log(u2))*cos(2.0*M_PI*u1);
 }
 
 typedef struct node {
@@ -25,18 +27,18 @@ typedef struct node {
 } node;
 
 typedef struct K_neighborhood {
+    uint32_t K;
     uint32_t* B; // K-length list of the loci in the order they are used to generate the sub-genotype
     double* fitnesses; // 2^K-length list of the fitness values assigned to each sub-genotype
 } K_neighborhood;
 
 typedef enum B_styles {BLOCKED, ADJACENT, RANDOM} B_styles;
-typedef enum K_styles {CLASSIC, RMF_1, RMF_2, RMF_3} K_styles;
 
 typedef struct NK_landscape {
     uint32_t N; // number of genes
-    uint32_t K; // interaction number
+    uint32_t K; // "goal" interaction number -- some neighborhoods may have K+1 if K doesn't divide N
     B_styles bst; // method of neighborhood forming
-    K_styles kst; // fitness function shape
+    double theta;
     node* nodes; // 2^N-length list of nodes
     K_neighborhood* nbs; // N-length list of neighborhoods
 } NK_landscape;
